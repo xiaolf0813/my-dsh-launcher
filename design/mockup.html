@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSH Launcher · UI 设计稿</title>
+<style>
+/* ==========================================================================
+   DSH Launcher — design-review canvas
+   Frames below are exact 1280x800 window simulations.
+   The review page chrome (background, captions, toggle) is NOT part of the app.
+   ========================================================================== */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --page-bg: #e7e8ec;
+  --page-ink: #26282e;
+  --page-ink-2: #6b6f76;
+  --page-line: #d3d5db;
+  --demo-accent: #4d6bfe;
+}
+
+html, body { background: var(--page-bg); }
+body {
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  color: var(--page-ink);
+  padding: 40px 48px 96px;
+}
+
+/* ---------------- review-page header ---------------- */
+.page-head {
+  max-width: 1280px; margin: 0 auto 14px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap;
+}
+.page-head h1 { font-size: 20px; font-weight: 600; letter-spacing: .01em; }
+.page-head .lede { margin-top: 6px; font-size: 12.5px; color: var(--page-ink-2); }
+.toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: var(--page-ink-2);
+  background: #fff; border: 1px solid var(--page-line);
+  padding: 8px 12px; border-radius: 8px; cursor: pointer; user-select: none;
+}
+.toggle input { accent-color: var(--demo-accent); width: 14px; height: 14px; }
+.page-note {
+  max-width: 1280px; margin: 0 auto 36px;
+  font-size: 12px; color: var(--page-ink-2);
+}
+
+/* ---------------- gallery ---------------- */
+.gallery { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 64px; }
+.cap { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 13px; color: var(--page-ink-2); }
+.cap b { color: var(--page-ink); font-weight: 600; }
+.chip {
+  font-size: 11px; padding: 3px 9px; border-radius: 999px;
+  background: #fff; border: 1px solid var(--page-line); color: var(--page-ink);
+}
+.chip.dk { background: #1a1d24; border-color: #1a1d24; color: #e8e9ec; }
+.chip.acc { background: rgba(77,107,254,.1); border-color: rgba(77,107,254,.35); color: #3d59e8; }
+
+/* ==========================================================================
+   Window frame (the app itself) — 1280x800, square-ish corners (decorations:false)
+   ========================================================================== */
+.win {
+  position: relative; width: 1280px; height: 800px;
+  overflow: hidden; border-radius: 6px;
+  outline: 1px solid rgba(15,18,26,.14);
+  box-shadow: 0 1px 2px rgba(16,20,30,.12), 0 28px 64px -24px rgba(16,20,30,.38);
+  user-select: none;
+}
+.light {
+  --bg: #f6f7f9;            /* main app background */
+  --surface: #ffffff;       /* cards, composer, right panel */
+  --surface-2: #f0f1f5;     /* left sidebar */
+  --text: #141414;
+  --text-2: #6b6f76;
+  --accent: #4D6BFE;
+  --accent-strong: #3d59e8;
+  --line: rgba(20,20,20,.08);
+  --line-strong: rgba(20,20,20,.16);
+  --field: rgba(20,20,20,.045);
+  --ctl-hover: rgba(0,0,0,.05);
+  --ctl-active: rgba(0,0,0,.09);
+  --sk: rgba(20,20,20,.07);
+  --err: #d93025;
+  --inset: 144px;           /* --dsh-launcher-inset : controls clearance */
+  background: var(--bg);
+}
+.dark {
+  --bg: #1a1d24;
+  --surface: #20242c;
+  --surface-2: #161920;
+  --text: #e8e9ec;
+  --text-2: #8b909a;
+  --accent: #4D6BFE;
+  --accent-strong: #3d59e8;
+  --line: rgba(255,255,255,.07);
+  --line-strong: rgba(255,255,255,.15);
+  --field: rgba(255,255,255,.055);
+  --ctl-hover: rgba(255,255,255,.06);
+  --ctl-active: rgba(255,255,255,.11);
+  --sk: rgba(255,255,255,.08);
+  --err: #ff6b63;
+  --inset: 144px;
+  background: var(--bg);
+}
+.win svg { display: block; }
+
+/* ---------------- shared injected chrome ----------------
+   z-plan: drag strip 2147483645 < controls 2147483646 < hint labels (demo only) */
+.dragstrip {
+  position: absolute; top: 0; left: 0; right: 0; height: 6px;
+  z-index: 2147483645;              /* data-tauri-drag-region target, 6px tall so nothing beneath is covered */
+}
+.wctl {
+  position: absolute; top: 0; right: 0; height: 38px;
+  display: flex; z-index: 2147483646;
+}
+.wc {
+  width: 48px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; padding: 0;
+  color: var(--text); cursor: default;
+  transition: background-color .12s linear, color .12s linear;
+}
+.wc svg { width: 10px; height: 10px; }
+.wc:hover { background: var(--ctl-hover); }
+.wc:active { background: var(--ctl-active); }
+.wc.close:hover { background: #e81123; color: #fff; }
+.wc.close:active { background: #c50f1f; color: #fff; }
+
+/* ---------------- hint overlay (demo-only toggle) ---------------- */
+.hints [data-hint] { outline: 1px dashed rgba(77,107,254,.95); outline-offset: -1px; }
+.hints [data-hint]::after {
+  content: attr(data-hint);
+  position: absolute; top: 8px; left: 8px; z-index: 2147483647;
+  font: 600 10px/1 "Segoe UI", sans-serif; letter-spacing: .02em;
+  color: #fff; background: rgba(77,107,254,.92);
+  padding: 4px 6px; border-radius: 4px; pointer-events: none; white-space: nowrap;
+}
+
+/* ==========================================================================
+   A / B / C — Splash
+   ========================================================================== */
+.splash { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.splash-drag {           /* splash-only extra drag zone across the top edge, stops before the controls */
+  position: absolute; top: 0; left: 0; right: var(--inset); height: 44px;
+  z-index: 2147483645;
+}
+.splash-inner { display: flex; flex-direction: column; align-items: center; transform: translateY(-16px); }
+.whale { width: 76px; height: 76px; color: var(--accent); }
+.pname { margin-top: 24px; font-size: 24px; font-weight: 600; letter-spacing: .01em; color: var(--text); }
+.tagline {
+  margin-top: 8px; font-size: 11px; font-weight: 600;
+  letter-spacing: .3em; text-transform: uppercase;
+  color: var(--text-2); text-indent: .3em;
+}
+.status { margin-top: 40px; height: 20px; font-size: 13px; color: var(--text-2); }
+.status span { transition: opacity .2s ease; }
+.status span.fade { opacity: 0; }
+.progress { margin-top: 14px; width: 220px; height: 2px; border-radius: 1px; background: var(--line); overflow: hidden; }
+.progress i {
+  display: block; height: 100%; width: 36%; border-radius: 1px; background: var(--accent);
+  animation: indeterminate 1.6s cubic-bezier(.4,0,.2,1) infinite;
+}
+@keyframes indeterminate {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(420%); }
+}
+
+/* error composition */
+.err { margin-top: 38px; display: flex; flex-direction: column; align-items: center; }
+.err-ic { width: 34px; height: 34px; color: var(--err); animation: err-in .2s ease-out; }
+@keyframes err-in { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
+.err-title { margin-top: 14px; font-size: 15px; font-weight: 600; color: var(--text); }
+.err-detail {
+  margin-top: 8px; max-width: 400px; text-align: center;
+  font-size: 12.5px; line-height: 1.7; color: var(--text-2);
+}
+.err-actions { margin-top: 24px; display: flex; gap: 10px; }
+.btn {
+  height: 32px; padding: 0 20px; border-radius: 6px;
+  font-size: 13px; font-family: inherit; cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color .12s linear, border-color .12s linear;
+}
+.btn:active { transform: translateY(.5px); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-ghost { background: transparent; color: var(--text); border-color: var(--line-strong); }
+.btn-ghost:hover { background: var(--ctl-hover); }
+
+/* ==========================================================================
+   D / E / F — simulated DSH page with injected chrome
+   ========================================================================== */
+.dsh { position: absolute; inset: 0; display: flex; }
+
+.sb {  /* left sidebar */
+  width: 264px; flex: none; background: var(--surface-2);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 8px; padding: 14px 12px 12px;
+}
+.sb-brand { display: flex; align-items: center; gap: 9px; padding: 2px 4px 8px; }
+.sb-brand svg { width: 20px; height: 20px; color: var(--accent); }
+.sb-brand span { font-size: 14px; font-weight: 600; color: var(--text); }
+.newchat {
+  height: 34px; border-radius: 8px; border: 1px solid var(--line-strong);
+  background: var(--surface); color: var(--text);
+  font-size: 13px; font-family: inherit;
+  display: flex; align-items: center; gap: 8px; padding: 0 12px; cursor: pointer;
+  transition: background-color .12s linear;
+}
+.newchat:hover { background: var(--ctl-hover); }
+.newchat svg { width: 13px; height: 13px; color: var(--text-2); }
+.search {
+  height: 32px; border-radius: 8px; background: var(--field);
+  display: flex; align-items: center; gap: 8px; padding: 0 10px;
+  color: var(--text-2); font-size: 13px;
+}
+.search svg { width: 13px; height: 13px; }
+.sb-list { margin-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+.item {
+  padding: 8px 10px; border-radius: 8px;
+  font-size: 13px; color: var(--text-2); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.item:hover { background: var(--ctl-hover); }
+.item.active { background: var(--ctl-hover); color: var(--text); font-weight: 500; }
+.sb-foot { margin-top: auto; padding: 4px 6px; font-size: 11px; color: var(--text-2); opacity: .75; }
+
+.main { flex: 1; position: relative; display: flex; flex-direction: column; }
+.chat-center {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  transform: translateY(-40px);
+}
+.greet { font-size: 26px; font-weight: 600; color: var(--text); }
+.sub { font-size: 14px; color: var(--text-2); }
+.composer {
+  width: 620px; margin: 0 auto 56px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(10,14,25,.05);
+  padding: 14px 14px 10px;
+}
+.c-text { font-size: 14px; color: var(--text-2); margin-bottom: 28px; }
+.c-row { display: flex; align-items: center; }
+.c-row .clip { width: 16px; height: 16px; color: var(--text-2); }
+.c-sp { flex: 1; }
+.send {
+  width: 30px; height: 30px; border-radius: 50%; border: 0;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: background-color .12s linear;
+}
+.send:hover { background: var(--accent-strong); }
+.send svg { width: 13px; height: 13px; }
+
+.rside {  /* optional right panel */
+  width: 320px; flex: none; background: var(--surface);
+  border-left: 1px solid var(--line);
+  display: flex; flex-direction: column;
+}
+/* the DSH right-sidebar tab strip (role=tablist[data-dockkit-strip]) */
+.dsh-strip {
+  height: 38px; flex: none;
+  display: flex; align-items: center; justify-content: flex-end; gap: 2px;
+  padding: 0 var(--inset) 0 8px;      /* injected rule: icons shifted left by 144px */
+  border-bottom: 1px solid var(--line);
+}
+.dsh-ic {
+  width: 28px; height: 28px; border-radius: 6px; border: 0; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--text-2); cursor: pointer;
+  transition: background-color .12s linear, color .12s linear;
+}
+.dsh-ic:hover { background: var(--ctl-hover); color: var(--text); }
+.dsh-ic svg { width: 16px; height: 16px; }
+.rside-body { padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+.sk-group { display: flex; flex-direction: column; gap: 8px; }
+.sk { height: 10px; border-radius: 5px; background: var(--sk); }
+.sk.t { height: 12px; width: 42%; border-radius: 6px; }
+.sk.w90 { width: 90%; } .sk.w70 { width: 70%; } .sk.w55 { width: 55%; }
+</style>
+</head>
+<body>
+
+<!-- ======================= shared SVG symbol library ======================= -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- DeepSeek whale, inlined verbatim from assets/dsh-favicon.svg (fill -> currentColor) -->
+    <symbol id="i-whale" viewBox="0 0 50 50">
+      <path fill="currentColor" fill-rule="nonzero" d="M48.8354 10.0479C48.3232 9.79199 48.1025 10.2798 47.8032 10.5278C47.7007 10.6079 47.6143 10.7119 47.5273 10.8076C46.7793 11.624 45.9048 12.1597 44.7622 12.0957C43.0923 12 41.666 12.5356 40.4058 13.8398C40.1377 12.2319 39.2476 11.272 37.8926 10.6558C37.1836 10.3359 36.4668 10.0156 35.9702 9.31982C35.6235 8.82373 35.5293 8.27197 35.356 7.72754C35.2456 7.3999 35.1353 7.06396 34.7651 7.00781C34.3633 6.94385 34.2056 7.2876 34.0479 7.57568C33.418 8.75195 33.1733 10.0479 33.1973 11.3599C33.2524 14.312 34.4736 16.6641 36.8999 18.3359C37.1758 18.5278 37.2466 18.7197 37.1597 19C36.9946 19.5757 36.7974 20.1357 36.624 20.7119C36.5137 21.0801 36.3486 21.1597 35.9624 21C34.6309 20.4321 33.481 19.5918 32.4644 18.5757C30.7393 16.8721 29.1792 14.9917 27.2334 13.52C26.7764 13.1758 26.3193 12.856 25.8467 12.5518C23.8618 10.584 26.1069 8.96777 26.627 8.77588C27.1704 8.57568 26.8159 7.8877 25.0591 7.896C23.3022 7.90381 21.6953 8.50391 19.647 9.30371C19.3477 9.42383 19.0322 9.51172 18.7095 9.58398C16.8501 9.22363 14.9199 9.14355 12.9033 9.37598C9.10596 9.80762 6.07275 11.6396 3.84326 14.7681C1.16455 18.5278 0.53418 22.7998 1.30664 27.2559C2.11768 31.9521 4.46582 35.8398 8.07373 38.8799C11.8159 42.0322 16.1255 43.5762 21.041 43.2803C24.0269 43.104 27.3516 42.6963 31.1016 39.4561C32.0469 39.936 33.0396 40.1279 34.686 40.272C35.9546 40.3921 37.1758 40.208 38.1211 40.0078C39.6021 39.688 39.4995 38.2881 38.9639 38.0322C34.623 35.9678 35.5762 36.8081 34.71 36.1279C36.9155 33.4639 40.2402 30.6958 41.54 21.728C41.6426 21.0161 41.5557 20.5679 41.54 19.9917C41.5322 19.6396 41.6108 19.5039 42.0049 19.4639C43.0923 19.3359 44.1479 19.0317 45.1167 18.4878C47.9292 16.9199 49.064 14.3438 49.3315 11.2559C49.3711 10.7837 49.3237 10.2959 48.8354 10.0479ZM24.3262 37.8398C20.1196 34.4639 18.0791 33.3521 17.2358 33.3999C16.4482 33.4482 16.5898 34.3682 16.7632 34.9678C16.9443 35.5601 17.1812 35.9683 17.5117 36.4878C17.7402 36.832 17.8979 37.3442 17.2832 37.728C15.9282 38.584 13.5728 37.4399 13.4624 37.3838C10.7207 35.7358 8.42822 33.5601 6.81348 30.584C5.25342 27.7197 4.34766 24.6479 4.19775 21.3677C4.1582 20.5757 4.38672 20.2959 5.15869 20.1519C6.17529 19.96 7.22314 19.9199 8.23926 20.0718C12.5327 20.7119 16.1885 22.6719 19.2529 25.7759C21.002 27.5439 22.3252 29.6558 23.6885 31.7202C25.1377 33.9121 26.6978 36 28.6831 37.7119C29.3843 38.312 29.9434 38.7681 30.479 39.104C28.8643 39.2881 26.1699 39.3281 24.3262 37.8398ZM26.3433 24.6001C26.3433 24.248 26.6191 23.9678 26.9658 23.9678C27.0444 23.9678 27.1152 23.9839 27.1782 24.0078C27.2651 24.04 27.3438 24.0879 27.4067 24.1602C27.5171 24.272 27.5801 24.4321 27.5801 24.6001C27.5801 24.9521 27.3042 25.2319 26.9575 25.2319C26.6108 25.2319 26.3433 24.9521 26.3433 24.6001ZM32.6064 27.8799C32.2046 28.0479 31.8027 28.1919 31.4165 28.208C30.8179 28.2397 30.1641 27.9922 29.8096 27.688C29.2583 27.2158 28.8643 26.9521 28.6987 26.1279C28.6279 25.7759 28.6675 25.2319 28.7305 24.9199C28.8721 24.248 28.7144 23.8159 28.2495 23.4238C27.8716 23.104 27.3911 23.0161 26.8633 23.0161C26.666 23.0161 26.4849 22.9277 26.3511 22.856C26.1304 22.7441 25.9492 22.4639 26.1226 22.1201C26.1777 22.0078 26.4458 21.7358 26.5088 21.688C27.2256 21.272 28.0527 21.4077 28.8169 21.7197C29.5259 22.0161 30.0615 22.5601 30.834 23.3281C31.6216 24.2559 31.7632 24.5117 32.2124 25.208C32.5669 25.752 32.8901 26.312 33.1104 26.9521C33.2446 27.3521 33.0713 27.6802 32.6064 27.8799Z"/>
+    </symbol>
+    <!-- Window-control glyphs, 1px-stroke Segoe Fluent style, 10x10 -->
+    <symbol id="i-min" viewBox="0 0 10 10"><path d="M1 5h8" fill="none" stroke="currentColor" stroke-width="1"/></symbol>
+    <symbol id="i-max" viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1"/></symbol>
+    <symbol id="i-restore" viewBox="0 0 10 10">
+      <g fill="none" stroke="currentColor" stroke-width="1">
+        <rect x="1.5" y="3.5" width="5.5" height="5"/><path d="M3.5 3.5V1.5h5v5h-2"/>
+      </g>
+    </symbol>
+    <symbol id="i-close" viewBox="0 0 10 10"><path d="M1.2 1.2l7.6 7.6M8.8 1.2l-7.6 7.6" fill="none" stroke="currentColor" stroke-width="1"/></symbol>
+    <!-- DSH right-strip glyphs, 16px, 1px stroke -->
+    <symbol id="i-full" viewBox="0 0 10 10"><path d="M1 3.2V1h2.2M6.8 1H9v2.2M9 6.8V9H6.8M3.2 9H1V6.8" fill="none" stroke="currentColor" stroke-width="1"/></symbol>
+    <symbol id="i-collapse" viewBox="0 0 10 10"><g fill="none" stroke="currentColor" stroke-width="1"><rect x="1.5" y="1.5" width="7" height="7" rx="1"/><path d="M6.2 1.5v7M4.7 3.5 3.2 5l1.5 1.5"/></g></symbol>
+    <symbol id="i-split" viewBox="0 0 10 10"><g fill="none" stroke="currentColor" stroke-width="1"><rect x="1.5" y="1.5" width="7" height="7" rx="1"/><path d="M5 1.5v7"/></g></symbol>
+    <symbol id="i-tab" viewBox="0 0 10 10"><path d="M5 2v6M2 5h6" fill="none" stroke="currentColor" stroke-width="1"/></symbol>
+    <!-- misc -->
+    <symbol id="i-search" viewBox="0 0 10 10"><g fill="none" stroke="currentColor" stroke-width="1"><circle cx="4.3" cy="4.3" r="2.8"/><path d="M6.5 6.5 9 9"/></g></symbol>
+    <symbol id="i-plus" viewBox="0 0 10 10"><path d="M5 1.6v6.8M1.6 5h6.8" fill="none" stroke="currentColor" stroke-width="1"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 16 16"><path d="M10.8 4.6 6.2 9.2a1.4 1.4 0 0 0 2 2l5-5a2.8 2.8 0 0 0-4-4l-5 5a4.2 4.2 0 0 0 6 6l4.4-4.4" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></symbol>
+    <symbol id="i-send" viewBox="0 0 10 10"><path d="M5 8.2V1.8M2.2 4.6 5 1.8l2.8 2.8" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-err" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><path d="M12 7.2v5.6"/></g><path d="M12 16.4h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- ======================= review page header ======================= -->
+<header class="page-head">
+  <div>
+    <h1>DSH Launcher — UI 设计稿</h1>
+    <p class="lede">1280 × 800 无边框窗口 · 共享窗口控制注入层 · 浅色 / 深色双主题</p>
+  </div>
+  <label class="toggle"><input type="checkbox" id="hint-toggle">显示拖拽 / 注入区域标注</label>
+</header>
+<p class="page-note">每个画框为 1280 × 800 的真实窗口比例。窗口控制按钮（右上角）可直接悬停查看状态；悬停「最小化 / 最大化 / 关闭」可见 Windows 11 式反馈，关闭按钮悬停为 #e81123。</p>
+
+<main class="gallery">
+
+  <!-- ======================= A · Splash light / loading ======================= -->
+  <section>
+    <div class="cap"><b>A · Splash 启动页</b><span>loading（状态文案自动轮播）</span><span class="chip">浅色</span><span class="chip acc">shared overlay</span></div>
+    <div class="win light">
+      <div class="splash">
+        <div class="splash-drag" data-tauri-drag-region data-hint="drag · 44px（splash 头部，右侧留出 144px）"></div>
+        <div class="splash-inner">
+          <svg class="whale"><use href="#i-whale"/></svg>
+          <div class="pname">DeepSeek Harness</div>
+          <div class="tagline">DSH Launcher</div>
+          <div class="status"><span id="st-a">正在启动 dsh 服务…</span></div>
+          <div class="progress"><i></i></div>
+        </div>
+      </div>
+      <div class="dragstrip" data-tauri-drag-region data-hint="drag · 6px 全宽"></div>
+      <div class="wctl" data-tauri-drag-region aria-label="窗口控制">
+        <button class="wc" title="最小化" aria-label="最小化"><svg viewBox="0 0 10 10"><use href="#i-min"/></svg></button>
+        <button class="wc" title="最大化" aria-label="最大化"><svg viewBox="0 0 10 10"><use href="#i-max"/></svg></button>
+        <button class="wc close" title="关闭" aria-label="关闭"><svg viewBox="0 0 10 10"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= B · Splash light / error ======================= -->
+  <section>
+    <div class="cap"><b>B · Splash 启动页</b><span>error</span><span class="chip">浅色</span></div>
+    <div class="win light">
+      <div class="splash">
+        <div class="splash-drag" data-tauri-drag-region></div>
+        <div class="splash-inner">
+          <svg class="whale"><use href="#i-whale"/></svg>
+          <div class="pname">DeepSeek Harness</div>
+          <div class="tagline">DSH Launcher</div>
+          <div class="err">
+            <svg class="err-ic"><use href="#i-err"/></svg>
+            <div class="err-title">启动失败</div>
+            <div class="err-detail">dsh web --no-open 未能启动本地服务。请确认 dsh 已安装并在 PATH 中，或检查端口是否被占用。</div>
+            <div class="err-actions">
+              <button class="btn btn-primary">重试</button>
+              <button class="btn btn-ghost">退出</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dragstrip" data-tauri-drag-region></div>
+      <div class="wctl" data-tauri-drag-region aria-label="窗口控制">
+        <button class="wc" title="最小化" aria-label="最小化"><svg viewBox="0 0 10 10"><use href="#i-min"/></svg></button>
+        <button class="wc" title="最大化" aria-label="最大化"><svg viewBox="0 0 10 10"><use href="#i-max"/></svg></button>
+        <button class="wc close" title="关闭" aria-label="关闭"><svg viewBox="0 0 10 10"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= C · Splash dark / loading ======================= -->
+  <section>
+    <div class="cap"><b>C · Splash 启动页</b><span>loading</span><span class="chip dk">深色</span></div>
+    <div class="win dark">
+      <div class="splash">
+        <div class="splash-drag" data-tauri-drag-region></div>
+        <div class="splash-inner">
+          <svg class="whale"><use href="#i-whale"/></svg>
+          <div class="pname">DeepSeek Harness</div>
+          <div class="tagline">DSH Launcher</div>
+          <div class="status"><span>正在启动 dsh 服务…</span></div>
+          <div class="progress"><i></i></div>
+        </div>
+      </div>
+      <div class="dragstrip" data-tauri-drag-region></div>
+      <div class="wctl" data-tauri-drag-region aria-label="窗口控制">
+        <button class="wc" title="最小化" aria-label="最小化"><svg viewBox="0 0 10 10"><use href="#i-min"/></svg></button>
+        <button class="wc" title="最大化" aria-label="最大化"><svg viewBox="0 0 10 10"><use href="#i-max"/></svg></button>
+        <button class="wc close" title="关闭" aria-label="关闭"><svg viewBox="0 0 10 10"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= D · DSH page light / right strip OPEN ======================= -->
+  <section>
+    <div class="cap"><b>D · DSH 页面集成</b><span>右侧边栏展开 — 图标左移 144px（--dsh-launcher-inset），与控制按钮零重叠</span><span class="chip">浅色</span><span class="chip acc">injected CSS</span></div>
+    <div class="win light">
+      <div class="dsh">
+        <aside class="sb">
+          <div class="sb-brand"><svg><use href="#i-whale"/></svg><span>DeepSeek</span></div>
+          <button class="newchat"><svg><use href="#i-plus"/></svg>开启新对话</button>
+          <div class="search"><svg><use href="#i-search"/></svg><span>搜索</span></div>
+          <div class="sb-list">
+            <div class="item active">DSH Launcher 设计评审</div>
+            <div class="item">Tauri 无边框窗口方案</div>
+            <div class="item">注入 CSS 兼容性排查</div>
+            <div class="item">dsh CLI 启动脚本</div>
+          </div>
+          <div class="sb-foot">DSH Launcher · v0.1.0</div>
+        </aside>
+        <main class="main">
+          <div class="chat-center">
+            <div class="greet">Hi，我是 DeepSeek。</div>
+            <div class="sub">今天想聊些什么？</div>
+          </div>
+          <div class="composer">
+            <div class="c-text">给 DeepSeek 发送消息</div>
+            <div class="c-row">
+              <svg class="clip"><use href="#i-clip"/></svg>
+              <div class="c-sp"></div>
+              <button class="send" aria-label="发送"><svg viewBox="0 0 10 10"><use href="#i-send"/></svg></button>
+            </div>
+          </div>
+        </main>
+        <aside class="rside" data-sidebar-right-panel>
+          <div class="dsh-strip" role="tablist" data-dockkit-strip>
+            <button class="dsh-ic" title="全屏" aria-label="全屏"><svg viewBox="0 0 10 10"><use href="#i-full"/></svg></button>
+            <button class="dsh-ic" title="收起右侧边栏" aria-label="收起右侧边栏" data-sidebar-right-toggle><svg viewBox="0 0 10 10"><use href="#i-collapse"/></svg></button>
+            <button class="dsh-ic" title="分栏" aria-label="分栏" data-sidebar-right-mode><svg viewBox="0 0 10 10"><use href="#i-split"/></svg></button>
+            <button class="dsh-ic" title="新标签页" aria-label="新标签页"><svg viewBox="0 0 10 10"><use href="#i-tab"/></svg></button>
+          </div>
+          <div class="rside-body">
+            <div class="sk-group"><div class="sk t"></div><div class="sk w90"></div><div class="sk w70"></div></div>
+            <div class="sk-group"><div class="sk t"></div><div class="sk w90"></div><div class="sk w55"></div></div>
+            <div class="sk-group"><div class="sk t"></div><div class="sk w70"></div></div>
+          </div>
+        </aside>
+      </div>
+      <div class="dragstrip" data-tauri-drag-region data-hint="drag · 6px 全宽（穿过 DSH 顶部条上方 6px 死区）"></div>
+      <div class="wctl" data-tauri-drag-region aria-label="窗口控制">
+        <button class="wc" title="最小化" aria-label="最小化"><svg viewBox="0 0 10 10"><use href="#i-min"/></svg></button>
+        <button class="wc" title="最大化" aria-label="最大化"><svg viewBox="0 0 10 10"><use href="#i-max"/></svg></button>
+        <button class="wc close" title="关闭" aria-label="关闭"><svg viewBox="0 0 10 10"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= E · DSH page dark / right strip OPEN ======================= -->
+  <section>
+    <div class="cap"><b>E · DSH 页面集成</b><span>右侧边栏展开</span><span class="chip dk">深色</span><span class="chip acc">injected CSS</span></div>
+    <div class="win dark">
+      <div class="dsh">
+        <aside class="sb">
+          <div class="sb-brand"><svg><use href="#i-whale"/></svg><span>DeepSeek</span></div>
+          <button class="newchat"><svg><use href="#i-plus"/></svg>开启新对话</button>
+          <div class="search"><svg><use href="#i-search"/></svg><span>搜索</span></div>
+          <div class="sb-list">
+            <div class="item active">DSH Launcher 设计评审</div>
+            <div class="item">Tauri 无边框窗口方案</div>
+            <div class="item">注入 CSS 兼容性排查</div>
+            <div class="item">dsh CLI 启动脚本</div>
+          </div>
+          <div class="sb-foot">DSH Launcher · v0.1.0</div>
+        </aside>
+        <main class="main">
+          <div class="chat-center">
+            <div class="greet">Hi，我是 DeepSeek。</div>
+            <div class="sub">今天想聊些什么？</div>
+          </div>
+          <div class="composer">
+            <div class="c-text">给 DeepSeek 发送消息</div>
+            <div class="c-row">
+              <svg class="clip"><use href="#i-clip"/></svg>
+              <div class="c-sp"></div>
+              <button class="send" aria-label="发送"><svg viewBox="0 0 10 10"><use href="#i-send"/></svg></button>
+            </div>
+          </div>
+        </main>
+        <aside class="rside" data-sidebar-right-panel>
+          <div class="dsh-strip" role="tablist" data-dockkit-strip>
+            <button class="dsh-ic" title="全屏" aria-label="全屏"><svg viewBox="0 0 10 10"><use href="#i-full"/></svg></button>
+            <button class="dsh-ic" title="收起右侧边栏" aria-label="收起右侧边栏" data-sidebar-right-toggle><svg viewBox="0 0 10 10"><use href="#i-collapse"/></svg></button>
+            <button class="dsh-ic" title="分栏" aria-label="分栏" data-sidebar-right-mode><svg viewBox="0 0 10 10"><use href="#i-split"/></svg></button>
+            <button class="dsh-ic" title="新标签页" aria-label="新标签页"><svg viewBox="0 0 10 10"><use href="#i-tab"/></svg></button>
+          </div>
+          <div class="rside-body">
+            <div class="sk-group"><div class="sk t"></div><div class="sk w90"></div><div class="sk w70"></div></div>
+            <div class="sk-group"><div class="sk t"></div><div class="sk w90"></div><div class="sk w55"></div></div>
+            <div class="sk-group"><div class="sk t"></div><div class="sk w70"></div></div>
+          </div>
+        </aside>
+      </div>
+      <div class="dragstrip" data-tauri-drag-region></div>
+      <div class="wctl" data-tauri-drag-region aria-label="窗口控制">
+        <button class="wc" title="最小化" aria-label="最小化"><svg viewBox="0 0 10 10"><use href="#i-min"/></svg></button>
+        <button class="wc" title="最大化" aria-label="最大化"><svg viewBox="0 0 10 10"><use href="#i-max"/></svg></button>
+        <button class="wc close" title="关闭" aria-label="关闭"><svg viewBox="0 0 10 10"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= F · DSH page light / right sidebar COLLAPSED ======================= -->
+  <section>
+    <div class="cap"><b>F · DSH 页面集成</b><span>右侧边栏收起 — 右上角仅剩窗口控制，无条带</span><span class="chip">浅色</span></div>
+    <div class="win light">
+      <div class="dsh">
+        <aside class="sb">
+          <div class="sb-brand"><svg><use href="#i-whale"/></svg><span>DeepSeek</span></div>
+          <button class="newchat"><svg><use href="#i-plus"/></svg>开启新对话</button>
+          <div class="search"><svg><use href="#i-search"/></svg><span>搜索</span></div>
+          <div class="sb-list">
+            <div class="item active">DSH Launcher 设计评审</div>
+            <div class="item">Tauri 无边框窗口方案</div>
+            <div class="item">注入 CSS 兼容性排查</div>
+          </div>
+          <div class="sb-foot">DSH Launcher · v0.1.0</div>
+        </aside>
+        <main class="main">
+          <div class="chat-center">
+            <div class="greet">Hi，我是 DeepSeek。</div>
+            <div class="sub">今天想聊些什么？</div>
+          </div>
+          <div class="composer">
+            <div class="c-text">给 DeepSeek 发送消息</div>
+            <div class="c-row">
+              <svg class="clip"><use href="#i-clip"/></svg>
+              <div class="c-sp"></div>
+              <button class="send" aria-label="发送"><svg viewBox="0 0 10 10"><use href="#i-send"/></svg></button>
+            </div>
+          </div>
+        </main>
+        <!-- right panel collapsed: nothing renders at top-right except the injected controls -->
+      </div>
+      <div class="dragstrip" data-tauri-drag-region></div>
+      <div class="wctl" data-tauri-drag-region aria-label="窗口控制">
+        <button class="wc" title="最小化" aria-label="最小化"><svg viewBox="0 0 10 10"><use href="#i-min"/></svg></button>
+        <button class="wc" title="最大化" aria-label="最大化"><svg viewBox="0 0 10 10"><use href="#i-max"/></svg></button>
+        <button class="wc close" title="关闭" aria-label="关闭"><svg viewBox="0 0 10 10"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// Demo: cycle the splash status through its two real states (starting -> transitioning).
+(function () {
+  var el = document.getElementById('st-a');
+  if (!el) return;
+  var msgs = ['正在启动 dsh 服务…', '正在打开界面…'];
+  var i = 0;
+  setInterval(function () {
+    el.classList.add('fade');
+    setTimeout(function () {
+      i = (i + 1) % msgs.length;
+      el.textContent = msgs[i];
+      el.classList.remove('fade');
+    }, 200);
+  }, 3200);
+})();
+
+// Demo: show/hide the drag-region and injection annotations.
+document.getElementById('hint-toggle').addEventListener('change', function (e) {
+  document.body.classList.toggle('hints', e.target.checked);
+});
+</script>
+</body>
+</html>

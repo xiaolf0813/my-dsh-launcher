@@ -1,0 +1,119 @@
+/* DSH Launcher — splash page (tokens from design/spec.md §1) */
+
+:root {
+  --bg: #f6f7f9;
+  --text: #141414;
+  --text-2: #6b6f76;
+  --accent: #4D6BFE;
+  --accent-strong: #3d59e8;
+  --line: rgba(20, 20, 20, .08);
+  --line-strong: rgba(20, 20, 20, .16);
+  --ctl-hover: rgba(0, 0, 0, .05);
+  --err: #d93025;
+  --dsh-launcher-inset: 144px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1d24;
+    --text: #e8e9ec;
+    --text-2: #8b909a;
+    --line: rgba(255, 255, 255, .07);
+    --line-strong: rgba(255, 255, 255, .15);
+    --ctl-hover: rgba(255, 255, 255, .06);
+    --err: #ff6b63;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+/* Pre-paint to the DSH --bg value for the current scheme so the post-fade
+   navigation never shows a one-frame white flash. */
+html { background: var(--bg); }
+
+body {
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  /* Splash -> DSH transition: fade the whole document out before navigating. */
+  transition: opacity 280ms cubic-bezier(.4, 0, .2, 1);
+}
+html.dsh-splash-out body { opacity: 0; }
+
+.splash {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Splash header drag zone: full width minus the controls inset. */
+.splash-drag {
+  position: absolute; top: 0; left: 0; right: var(--dsh-launcher-inset);
+  height: 44px; z-index: 2147483645;
+}
+
+.splash-inner {
+  display: flex; flex-direction: column; align-items: center;
+  transform: translateY(-16px); /* optical correction */
+  animation: splash-enter 240ms cubic-bezier(0, 0, 0.2, 1);
+}
+@keyframes splash-enter {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(-16px); }
+}
+
+.whale { width: 76px; height: 76px; color: var(--accent); }
+.pname { margin-top: 24px; font-size: 24px; font-weight: 600; letter-spacing: .01em; color: var(--text); }
+.tagline {
+  margin-top: 8px; font-size: 11px; font-weight: 600;
+  letter-spacing: .3em; text-transform: uppercase;
+  color: var(--text-2); text-indent: .3em;
+}
+
+.status {
+  margin-top: 40px; height: 20px; width: 100%;
+  font-size: 13px; color: var(--text-2); text-align: center;
+}
+.status span { display: inline-block; transition: opacity .2s ease; }
+.status span.fade { opacity: 0; }
+
+.progress {
+  margin-top: 14px; width: 220px; height: 2px; border-radius: 1px;
+  background: var(--line); overflow: hidden;
+}
+.progress i {
+  display: block; height: 100%; width: 36%; border-radius: 1px;
+  background: var(--accent);
+  animation: indeterminate 1.6s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+@keyframes indeterminate {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(420%); }
+}
+
+/* Error composition */
+.err { margin-top: 38px; display: flex; flex-direction: column; align-items: center; }
+.err-ic { width: 34px; height: 34px; color: var(--err); animation: err-in .2s ease-out; }
+@keyframes err-in {
+  from { opacity: 0; transform: scale(.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.err-title { margin-top: 14px; font-size: 15px; font-weight: 600; color: var(--text); }
+.err-detail {
+  margin-top: 8px; max-width: 400px; text-align: center;
+  font-size: 12.5px; line-height: 1.7; color: var(--text-2);
+  white-space: pre-line; /* Rust error messages may embed a stderr tail */
+}
+.err-actions { margin-top: 24px; display: flex; gap: 10px; }
+
+.btn {
+  height: 32px; padding: 0 20px; border-radius: 6px;
+  font-size: 13px; font-family: inherit; cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color .12s linear, border-color .12s linear;
+}
+.btn:active { transform: translateY(.5px); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-ghost { background: transparent; color: var(--text); border-color: var(--line-strong); }
+.btn-ghost:hover { background: var(--ctl-hover); }

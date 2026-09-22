@@ -1,6 +1,5 @@
 # Generates a Lottie loading animation from dsh-favicon.svg:
-# a whale cruising in place (loading), then dashing out to the right,
-# and swimming back in from the left for a seamless 3.0s loop.
+# a whale cruising in place forever (seamless loop) with bubbles and waves.
 # Usage: python generate_fish_loading.py
 # Tunables live in the CFG block below.
 import re, math, json, os
@@ -9,7 +8,7 @@ SVG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dsh-favicon
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ---------------------------------------------------------------- CFG
-FR, OP, W, H = 60, 180, 200, 120          # 3.0 s loop @ 60 fps
+FR, OP, W, H = 60, 180, 200, 120          # 3.0 s seamless loop @ 60 fps
 SCALE = 1.3                                # whale scale relative to 50px svg
 CX, CY = 24.9, 25.2                        # whale centroid in svg coords
 HOME_X, HOME_Y = 100.0, 60.0               # whale center on canvas
@@ -18,14 +17,6 @@ SWAY_A, SWAY_T = 7.0, 36                   # cruise x sway  (period must divide 
 BOB_A,  BOB_T  = 5.0, 36                   # cruise y bob   (null layer)
 PITCH_M, PITCH_A, PITCH_T = -2.0, 3.0, 36  # cruise nose pitch wave
 BREATH_A = 2.0                             # cruise scale breathing %
-
-T_ANT0, T_ANT1 = 84, 100                   # anticipation window (pull back + squash)
-T_DASH1       = 140                        # whale fully off right edge
-T_RE0         = 144                        # whale re-enters from left edge
-X_OUT, X_IN   = 234.0, -58.0               # fully off right edge at ~T_DASH1 / re-enter from left
-ANT_X, ANT_Y  = 74.0, 60.0                 # anticipation end position
-DASH_Y        = 54.0                       # exit y (slight lift)
-RE_IN_Y       = 66.0                       # re-entry y (slightly low, settles up)
 
 # accent colors (bubbles / streaks / waves); brand whale blue #4D6BFE
 BRAND_BLUE = [0x4D / 255, 0x6B / 255, 0xFE / 255, 1.0]
@@ -39,22 +30,13 @@ THEMES = {
 }
 
 BUBBLES = [  # diameter, period(frames, must divide OP), x0, phase(deg)
-    (9.0, 90, 119.0,   0.0),
-    (7.0, 60, 128.0, 120.0),
-    (5.0, 45, 112.0, 240.0),
-]
-STREAKS = [  # length, y, x0, t0 (appear window is t0..t0+40)
-    (22.0, 46.0, 54.0,  96),
-    (15.0, 62.0, 36.0, 100),
-    (10.0, 76.0, 70.0,  92),
+    (9.0, 90,  52.0,   0.0),   # whale faces left: bubbles rise in front of the snout
+    (7.0, 60,  64.0, 120.0),
+    (5.0, 45,  44.0, 240.0),
 ]
 
 # ------------------------------------------------------- easing helpers
 EASE_SINE    = ({"x": [0.37], "y": [0.0]}, {"x": [0.63], "y": [1.0]})
-EASE_INOUT   = ({"x": [0.40], "y": [0.0]}, {"x": [0.20], "y": [1.0]})   # (0.4,0,0.2,1)
-EASE_IN_ACC  = ({"x": [0.30], "y": [0.0]}, {"x": [1.00], "y": [1.0]})   # MD3 accelerate
-EASE_OUT_EMP = ({"x": [0.05], "y": [0.70]}, {"x": [0.10], "y": [1.0]})  # MD3 emphasized
-EASE_OUT_SOFT= ({"x": [0.10], "y": [0.55]}, {"x": [0.15], "y": [1.0]})  # gentler decelerate
 EASE_LINEAR  = ({"x": [0.333], "y": [0.333]}, {"x": [0.667], "y": [0.667]})
 
 def K(t, v, ease=EASE_SINE, hold=False, to=None, ti=None):
@@ -75,7 +57,7 @@ def anim_p(keys):       return {"a": 1, "k": keys}
 # --------------------------------------------------------- cruise waves
 def sway(f):   return HOME_X - SWAY_A * math.cos(2 * math.pi * f / SWAY_T)
 def bob(f):    return -BOB_A * math.cos(2 * math.pi * f / BOB_T)   # null is relative: whale adds its own HOME_Y
-def pitch(f):  return PITCH_M + PITCH_A * math.sin(2 * math.pi * f / PITCH_T)
+def pitch(f):  return -(PITCH_M + PITCH_A * math.sin(2 * math.pi * f / PITCH_T))  # head on the left: invert pitch phase
 def breath(f): return 100.0 + BREATH_A * math.sin(2 * math.pi * f / PITCH_T)
 
 # --------------------------------------------------------- svg -> lottie
@@ -102,8 +84,8 @@ def parse_subpaths(d):
     return subs
 
 def bake(x, y):
-    """mirror around whale centroid (face right) and map onto canvas."""
-    return (round(HOME_X - (x - CX) * SCALE, 2), round(HOME_Y + (y - CY) * SCALE, 2))
+    """map onto canvas (the favicon already faces right — no mirror)."""
+    return (round(HOME_X + (x - CX) * SCALE, 2), round(HOME_Y + (y - CY) * SCALE, 2))
 
 def subpath_to_lottie(sub):
     # collect segments: anchors[j] -> anchors[j+1] with (c1, c2) absolute controls
@@ -152,10 +134,11 @@ def tr(p=[0, 0]):
     return {"ty": "tr", "p": static_p(p), "a": static_p([0, 0]),
             "s": static_p([100, 100]), "r": static_p(0), "o": static_p(100)}
 
-def shape_layer(ind, nm, shapes, ks, parent=None):
+def shape_layer(ind, nm, shapes, ks, parent=None, tt=None):
     L = {"ddd": 0, "ind": ind, "ty": 4, "nm": nm, "sr": 1, "ks": ks,
          "ao": 0, "shapes": shapes, "ip": 0, "op": OP, "st": 0, "bm": 0}
     if parent: L["parent"] = parent
+    if tt: L["tt"] = tt
     return L
 
 def null_layer(ind, nm, ks):
@@ -163,49 +146,19 @@ def null_layer(ind, nm, ks):
             "ao": 0, "ip": 0, "op": OP, "st": 0, "bm": 0}
 
 # ------------------------------------------------------------ whale keys
+# pure cruise: every wave is periodic with a period dividing OP, so
+# keyframes sampled on the 9-frame grid close the loop exactly (f180 == f0).
 def whale_pos_keys():
-    ks = []
-    for f in range(0, 82, 9):                       # cruise grid 0..81
-        ks.append(K(f, [round(sway(f), 2), HOME_Y]))
-    ks.append(K(84, [round(sway(84), 2), HOME_Y]))  # sway(84)=91.5
-    ks.append(K(T_ANT1, [ANT_X, ANT_Y], EASE_INOUT, to=[14, 0], ti=[-12, 0]))
-    ks.append(K(T_DASH1, [X_OUT, DASH_Y], EASE_IN_ACC))
-    ks.append(K(T_DASH1, [X_OUT, DASH_Y], hold=True))   # hold while off-screen
-    ks.append(K(T_RE0, [X_IN, RE_IN_Y], EASE_OUT_SOFT, to=[28, -4], ti=[-26, 2]))
-    ks.append(K(OP, [round(sway(0), 2), HOME_Y]))       # = f0 value: seamless
-    return ks
+    return [K(f, [round(sway(f), 2), HOME_Y]) for f in range(0, OP + 1, 9)]
 
 def whale_rot_keys():
-    ks = [K(f, round(pitch(f), 2)) for f in range(0, 82, 9)]
-    ks.append(K(84, round(pitch(84), 2)))
-    ks.append(K(96, -8.0, EASE_INOUT))    # wind-up: nose up, body rocks back
-    ks.append(K(104, -8.0))
-    ks.append(K(114, -5.0))
-    ks.append(K(126, -2.0))
-    ks.append(K(140, 0.0))
-    ks.append(K(150, -2.0))
-    ks.append(K(162, -4.0))
-    ks.append(K(171, round(pitch(171), 2)))  # -5, rejoins cruise wave
-    ks.append(K(OP, round(pitch(0), 2)))
-    return ks
+    return [K(f, round(pitch(f), 2)) for f in range(0, OP + 1, 9)]
 
 def whale_scale_keys():
     ks = []
-    for f in range(0, 82, 9):
+    for f in range(0, OP + 1, 9):
         b = round(breath(f), 2)
         ks.append(K(f, [b, b]))
-    b84 = round(breath(84), 2)
-    ks.append(K(84, [b84, b84]))
-    ks.append(K(96, [96.5, 103.5], EASE_INOUT))   # squash during wind-up
-    ks.append(K(104, [101, 99]))
-    ks.append(K(114, [107, 93]))                  # stretch at full speed
-    ks.append(K(128, [106, 94]))
-    ks.append(K(140, [105, 95], hold=True))
-    ks.append(K(144, [105, 95]))
-    ks.append(K(158, [102, 98]))
-    ks.append(K(168, [round(breath(168), 2)] * 2))
-    ks.append(K(171, [round(breath(171), 2)] * 2))
-    ks.append(K(OP, [100.0, 100.0]))
     return ks
 
 def bob_keys():
@@ -236,25 +189,23 @@ def bubble_layer(ind, d, T, x0, phase, theme):
         tr()]}]
     return shape_layer(ind, f"bubble-{ind}", shapes, ks)
 
-def streak_layer(ind, ln, y, x0, t0, theme):
-    pa, oa = [], []
-    for f, x, al in [(t0, x0, 0), (t0 + 8, x0, 85), (t0 + 26, x0 - 9, 38),
-                     (t0 + 40, x0 - 18, 0)]:
-        pa.append(K(f, [x, y], EASE_SINE))
-        oa.append(K(f, al, EASE_SINE))
-    ks = {"o": anim_p(oa), "r": static_p(0), "p": anim_p(pa),
-          "a": static_p([0, 0]), "s": static_p([100, 100])}
-    path = {"ty": "sh", "nm": "streak", "ks": static_p(
-        {"i": [[0, 0], [0, 0]], "o": [[0, 0], [0, 0]],
-         "v": [[-ln / 2, 0], [ln / 2, 0]], "c": False})}
-    shapes = [{"ty": "gr", "nm": "streak-grp", "it": [
-        path,
-        {"ty": "st", "c": static_p(theme["streak"]), "o": static_p(100),
-         "w": static_p(3.5), "lc": 2, "lj": 2},
-        tr()]}]
-    return shape_layer(ind, f"streak-{ind}", shapes, ks)
+def fade_matte_layer(ind, cy, h):
+    """static gradient-alpha matte: wave fades out at both canvas edges"""
+    grad = {"ty": "gf", "o": static_p(100), "r": 1, "bm": 0,
+            "g": {"p": 4, "k": {"a": 0, "k": [
+                0, 1, 1, 1,  0.35, 1, 1, 1,  0.65, 1, 1, 1,  1, 1, 1, 1,
+                0, 0,  0.14, 1,  0.86, 1,  1, 0]}},
+            "s": static_p([0, cy]), "e": static_p([W, cy]), "t": 1,
+            "h": 0, "a": static_p(0)}
+    shapes = [{"ty": "gr", "nm": "fade-matte", "it": [
+        {"ty": "rc", "p": static_p([W / 2, cy]), "s": static_p([W, h]), "r": static_p(0)},
+        grad, tr()]}]
+    return {"ddd": 0, "ind": ind, "ty": 4, "nm": f"wave-fade-{ind}", "sr": 1,
+            "ks": {"o": static_p(100), "r": static_p(0), "p": static_p([0, 0]),
+                   "a": static_p([0, 0]), "s": static_p([100, 100])},
+            "ao": 0, "shapes": shapes, "ip": 0, "op": OP, "st": 0, "bm": 0, "td": 1}
 
-def wave_layer(ind, amp, y, phase_px, shift, opac, sw, theme):
+def wave_layer(ind, amp, y, phase_px, shift, opac, sw, theme, tt=None):
     pts, ins, outs = [], [], []
     x = -60.0
     while x <= 341.0:
@@ -272,7 +223,7 @@ def wave_layer(ind, amp, y, phase_px, shift, opac, sw, theme):
         {"ty": "st", "c": static_p(theme["wave"]), "o": static_p(100),
          "w": static_p(sw), "lc": 2, "lj": 2},
         tr()]}]
-    return shape_layer(ind, f"wave-{ind}", shapes, ks)
+    return shape_layer(ind, f"wave-{ind}", shapes, ks, tt=tt)
 
 # ------------------------------------------------------------------ main
 def build(theme_name):
@@ -288,10 +239,12 @@ def build(theme_name):
     ind = 3
     for d, T, x0, ph in BUBBLES:
         layers.append(bubble_layer(ind, d, T, x0, ph, th)); ind += 1
-    for ln, y, x0, t0 in STREAKS:
-        layers.append(streak_layer(ind, ln, y, x0, t0, th)); ind += 1
-    layers.append(wave_layer(ind, 5.0, 97, 0, -80, 34, 2.0, th)); ind += 1
-    layers.append(wave_layer(ind, 3.5, 108, 40, -160, 24, 1.5, th)); ind += 1
+    layers.append(fade_matte_layer(ind, 100, 42)); ind += 1
+    layers.append(wave_layer(ind, 5.0, 97, 0, -80, 34, 2.0, th, tt=1)); ind += 1
+    # dark bg needs a stronger, thicker second wave to stay visible
+    w2_op, w2_w = (24, 1.5) if theme_name == "light" else (38, 2.2)
+    layers.append(fade_matte_layer(ind, 100, 42)); ind += 1
+    layers.append(wave_layer(ind, 3.5, 108, 40, -160, w2_op, w2_w, th, tt=1)); ind += 1
     return {"v": "5.9.6", "fr": FR, "ip": 0, "op": OP, "w": W, "h": H,
             "nm": f"dsh-fish-loading-{theme_name}", "ddd": 0,
             "assets": [], "layers": layers,

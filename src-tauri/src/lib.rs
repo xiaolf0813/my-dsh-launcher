@@ -13,9 +13,6 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const READY_TIMEOUT: Duration = Duration::from_secs(90);
 const STDERR_TAIL_LINES: usize = 10;
-/// Splash minimum dwell (600ms) + fade-out (280ms) before the webview is
-/// navigated to the dsh URL; keep in sync with ui/splash.js.
-const SPLASH_TOTAL_MS: u64 = 950;
 
 const INIT_JS: &str = include_str!("overlay.js");
 
@@ -27,6 +24,9 @@ struct DshChild {
 
 /// Managed state holding the current dsh process, if any.
 struct DshProcess(Mutex<Option<DshChild>>);
+
+/// URL waiting for the splash exit animation to finish (`navigate_now`).
+struct PendingNav(Mutex<Option<String>>);
 
 /// Boot progress shared between the stdout scanner, stderr drainer and timeout watchdog.
 struct BootShared {
@@ -76,27 +76,28 @@ fn emit_error_once(shared: &BootShared, app: &tauri::AppHandle, mut message: Str
     let _ = app.emit("dsh://error", serde_json::json!({ "message": message }));
 }
 
-/// Emit `dsh://ready` (splash UI feedback), then navigate to the URL from the
-/// Rust side after the splash dwell+fade window. Navigation MUST NOT be done
-/// from the splash page: a cross-origin `location.replace` marks the request
-/// chain cross-site, so dsh's `SameSite=Strict` auth cookie is withheld on the
-/// 303 redirect and the page lands on a 401. A native `Webview::navigate` has
-/// no initiator (Sec-Fetch-Site: none) and carries the cookie correctly.
-fn emit_ready_then_navigate(shared: &BootShared, app: &tauri::AppHandle, url: String) {
-    if shared.found.swap(true, Ordering::SeqCst) {
-        return;
-    }
+/// Emit `dsh://ready` (splash UI feedback) and hold the URL. Navigation MUST
+/// NOT be done from the splash page (a cross-origin `location.replace` breaks
+/// dsh's SameSite=Strict auth cookie on the 303) — the splash invokes
+/// `navigate_now` when its exit animation finishes, and the navigation itself
+/// is a native `Webview::navigate` (no initiator, cookie carries correctly).
+fn emit_ready(app: &tauri::AppHandle, url: String) {
+    *app.state::<PendingNav>().0.lock().unwrap() = Some(url.clone());
     let _ = app.emit("dsh://ready", serde_json::json!({ "url": url }));
-    let app = app.clone();
-    thread::spawn(move || {
-        thread::sleep(Duration::from_millis(SPLASH_TOTAL_MS));
-        let Some(webview) = app.get_webview_window("main") else {
-            return;
-        };
+}
+
+/// Navigate to the URL staged by `emit_ready`. Called by the splash page after
+/// the exit animation completes and the fade-out has started.
+#[tauri::command]
+fn navigate_now(app: tauri::AppHandle) {
+    let url = app.state::<PendingNav>().0.lock().unwrap().take();
+    if let Some(url) = url {
         if let Ok(parsed) = tauri::Url::parse(&url) {
-            let _ = webview.navigate(parsed);
+            if let Some(webview) = app.get_webview_window("main") {
+                let _ = webview.navigate(parsed);
+            }
         }
-    });
+    }
 }
 
 /// Kill the whole dsh process tree. The PID is taken out of state BEFORE killing
@@ -194,7 +195,8 @@ fn spawn_dsh(app: tauri::AppHandle) {
                 if !found {
                     if let Some(url) = extract_url(&line) {
                         found = true;
-                        emit_ready_then_navigate(&shared, &app_scanner, url);
+                        shared.found.store(true, Ordering::SeqCst);
+                        emit_ready(&app_scanner, url);
                     }
                 }
             }
@@ -224,7 +226,8 @@ fn quit_app(app: tauri::AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .manage(DshProcess(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![start_dsh, quit_app])
+        .manage(PendingNav(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![start_dsh, quit_app, navigate_now])
         .setup(|app| {
             let _window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("DSH Launcher")

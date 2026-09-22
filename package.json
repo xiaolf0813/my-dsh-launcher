@@ -1,11 +1,12 @@
 {
   "name": "dsh-launcher",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "tauri": "tauri"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.11.5"
+    "@tauri-apps/cli": "^2.11.5",
+    "lottie-web": "^5.13.0"
   }
 }

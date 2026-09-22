@@ -17,7 +17,7 @@
     ':root { --dsh-launcher-inset: 144px; }',
 
     '/* 6px full-width top drag strip (below the controls so buttons stay clickable). */',
-    '#' + STRIP_ID + ' { position: fixed; top: 0; left: 0; right: 0; height: 6px; z-index: 2147483645; }',
+    '#' + STRIP_ID + ' { position: fixed; top: 0; left: 0; right: 0; height: 6px; z-index: 998; }',
 
     '/* Token set: light default; dark when DSH marks its theme OR the OS is dark.',
     '   --dsh-ctl-glyph matches the muted tone of DSH native icons (#5C5F77 light). */',
@@ -42,10 +42,13 @@
     '  }',
     '}',
 
-    '/* Windows-11-style caption buttons, flush to the exact top-right corner. */',
+    '/* Windows-11-style caption buttons, flush to the exact top-right corner.',
+    '   z-index 999: above all normal page content and the app shell (z ≤ 20),',
+    '   but BELOW DSH modal overlays (z 1000) so open dialogs cover and dim the',
+    '   buttons naturally — no listeners needed, the browser does the work. */',
     '#' + CONTROLS_ID + ' {',
     '  position: fixed; top: 0; right: 0; height: 38px;',
-    '  display: flex; z-index: 2147483646;',
+    '  display: flex; z-index: 999;',
     '  background: transparent;',
     '  user-select: none; -webkit-user-select: none;',
     '}',

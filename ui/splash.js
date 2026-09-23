@@ -96,8 +96,12 @@
     setTimeout(function () { T.core.invoke('navigate_now').catch(function () {}); }, FADE_OUT_MS);
   }
 
-  T.event.listen('dsh://ready', function () {
+  T.event.listen('dsh://ready', function (e) {
     setStatus(STATUS_OPENING);
+    if (e.payload && e.payload.dshVersion) {
+      var brand = document.querySelector('.corner-brand');
+      if (brand) brand.title = 'dsh ' + e.payload.dshVersion;
+    }
     var wait = Math.max(0, MIN_DWELL_MS - (Date.now() - startedAt));
     setTimeout(finishSplash, wait);
   });

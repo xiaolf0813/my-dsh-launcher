@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -27,6 +27,9 @@ struct DshProcess(Mutex<Option<DshChild>>);
 
 /// URL waiting for the splash exit animation to finish (`navigate_now`).
 struct PendingNav(Mutex<Option<String>>);
+
+/// Detected `dsh --version` string, probed once at startup.
+struct DshVersion(Mutex<Option<String>>);
 
 /// Boot progress shared between the stdout scanner, stderr drainer and timeout watchdog.
 struct BootShared {
@@ -76,6 +79,32 @@ fn emit_error_once(shared: &BootShared, app: &tauri::AppHandle, mut message: Str
     let _ = app.emit("dsh://error", serde_json::json!({ "message": message }));
 }
 
+/// Probe `dsh --version` so the injection can adapt to (and diagnose) the
+/// running dsh release. Bounded by a 5s timeout; returns None on failure.
+fn probe_dsh_version() -> Option<String> {
+    let mut child = spawn_command("cmd", &["/C", "dsh", "--version"]).spawn().ok()?;
+    let started = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) => {
+                if started.elapsed() > Duration::from_secs(5) {
+                    let _ = child.kill();
+                    return None;
+                }
+                thread::sleep(Duration::from_millis(50));
+            }
+            Err(_) => return None,
+        }
+    }
+    let mut out = String::new();
+    if let Some(mut io) = child.stdout.take() {
+        let _ = io.read_to_string(&mut out);
+    }
+    let version = out.trim().to_string();
+    if version.is_empty() { None } else { Some(version) }
+}
+
 /// Emit `dsh://ready` (splash UI feedback) and hold the URL. Navigation MUST
 /// NOT be done from the splash page (a cross-origin `location.replace` breaks
 /// dsh's SameSite=Strict auth cookie on the 303) — the splash invokes
@@ -83,7 +112,17 @@ fn emit_error_once(shared: &BootShared, app: &tauri::AppHandle, mut message: Str
 /// is a native `Webview::navigate` (no initiator, cookie carries correctly).
 fn emit_ready(app: &tauri::AppHandle, url: String) {
     *app.state::<PendingNav>().0.lock().unwrap() = Some(url.clone());
-    let _ = app.emit("dsh://ready", serde_json::json!({ "url": url }));
+    let version = app.state::<DshVersion>().0.lock().unwrap().clone();
+    let _ = app.emit(
+        "dsh://ready",
+        serde_json::json!({ "url": url, "dshVersion": version }),
+    );
+}
+
+/// Current dsh version for UI diagnostics (tooltip, compat checks).
+#[tauri::command]
+fn get_dsh_version(app: tauri::AppHandle) -> Option<String> {
+    app.state::<DshVersion>().0.lock().unwrap().clone()
 }
 
 /// Navigate to the URL staged by `emit_ready`. Called by the splash page after
@@ -227,7 +266,8 @@ pub fn run() {
     tauri::Builder::default()
         .manage(DshProcess(Mutex::new(None)))
         .manage(PendingNav(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![start_dsh, quit_app, navigate_now])
+        .manage(DshVersion(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![start_dsh, quit_app, navigate_now, get_dsh_version])
         .setup(|app| {
             let _window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("DSH Launcher")
@@ -238,6 +278,19 @@ pub fn run() {
                 .resizable(true)
                 .initialization_script(INIT_JS)
                 .build()?;
+
+            // Probe the dsh release concurrently with the web boot; the
+            // injection layer adapts to / diagnoses against this version.
+            {
+                let handle = app.handle().clone();
+                thread::spawn(move || {
+                    let version = probe_dsh_version();
+                    if let Some(v) = &version {
+                        eprintln!("[dsh-launcher] dsh version: {v}");
+                    }
+                    *handle.state::<DshVersion>().0.lock().unwrap() = version;
+                });
+            }
 
             spawn_dsh(app.handle().clone());
             Ok(())

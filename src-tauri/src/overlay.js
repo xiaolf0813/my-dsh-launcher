@@ -19,26 +19,21 @@
     '/* 6px full-width top drag strip (below the controls so buttons stay clickable). */',
     '#' + STRIP_ID + ' { position: fixed; top: 0; left: 0; right: 0; height: 6px; z-index: 998; }',
 
-    '/* Token set: light default; dark when DSH marks its theme OR the OS is dark.',
-    '   --dsh-ctl-glyph matches the muted tone of DSH native icons (#5C5F77 light). */',
+    '/* Token set: reference the host theme tokens (--dsw-alias-*) so glyph and',
+    '   hover colors follow ANY DSH theme (default light/dark, Catppuccin, …).',
+    '   The hardcoded values are only the splash-page fallback (no tokens there).',
+    '   NOTE: no body[data-ds-dark-theme] override here — it would clobber the',
+    '   synced tokens on DSH pages; the @media fallback only fires on the splash. */',
     '#' + CONTROLS_ID + ', #' + STRIP_ID + ' {',
-    '  --dsh-text: #141414;',
-    '  --dsh-ctl-glyph: #5C5F77;',
-    '  --dsh-ctl-hover: rgba(0, 0, 0, .05);',
-    '  --dsh-ctl-active: rgba(0, 0, 0, .09);',
-    '}',
-    'body[data-ds-dark-theme] #' + CONTROLS_ID + ', body[data-ds-dark-theme] #' + STRIP_ID + ' {',
-    '  --dsh-text: #e8e9ec;',
-    '  --dsh-ctl-glyph: #9aa3af;',
-    '  --dsh-ctl-hover: rgba(255, 255, 255, .06);',
-    '  --dsh-ctl-active: rgba(255, 255, 255, .11);',
+    '  --dsh-ctl-glyph: var(--dsw-alias-label-secondary, #5C5F77);',
+    '  --dsh-ctl-hover: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, .05));',
+    '  --dsh-ctl-active: var(--dsw-alias-interactive-bg-active, rgba(0, 0, 0, .09));',
     '}',
     '@media (prefers-color-scheme: dark) {',
     '  #' + CONTROLS_ID + ', #' + STRIP_ID + ' {',
-    '    --dsh-text: #e8e9ec;',
-    '    --dsh-ctl-glyph: #9aa3af;',
-    '    --dsh-ctl-hover: rgba(255, 255, 255, .06);',
-    '    --dsh-ctl-active: rgba(255, 255, 255, .11);',
+    '    --dsh-ctl-glyph: var(--dsw-alias-label-secondary, #9aa3af);',
+    '    --dsh-ctl-hover: var(--dsw-alias-interactive-bg-hover, rgba(255, 255, 255, .06));',
+    '    --dsh-ctl-active: var(--dsw-alias-interactive-bg-active, rgba(255, 255, 255, .11));',
     '  }',
     '}',
 
@@ -53,19 +48,32 @@
     '  user-select: none; -webkit-user-select: none;',
     '}',
     '#' + CONTROLS_ID + ' button {',
+    '  position: relative; overflow: hidden;',
     '  width: 48px; height: 38px; padding: 0; border: 0; margin: 0; border-radius: 0;',
     '  display: flex; align-items: center; justify-content: center;',
     '  background: transparent; color: var(--dsh-ctl-glyph);',
     '  cursor: default; -webkit-user-drag: none;',
-    '  transition: background-color 120ms linear, color 120ms linear;',
     '}',
     '/* On DSH pages the caption glyphs align to the host icon row (center y=25);',
     '   the splash keeps the native 38px-band center. */',
     'html.dsh-page #' + CONTROLS_ID + ' button { padding-top: 12px; }',
-    '#' + CONTROLS_ID + ' button:hover { background: var(--dsh-ctl-hover); }',
-    '#' + CONTROLS_ID + ' button:active { background: var(--dsh-ctl-active); }',
-    '#' + CONTROLS_ID + ' button.close:hover { background: #e81123; color: #fff; }',
-    '#' + CONTROLS_ID + ' button.close:active { background: #c50f1f; color: #fff; }',
+    '/* Hover/active feedback as a centered pill (28x28, r=28) — same shape and',
+    '   token color as the host icon buttons; the 48x38 hit area is unchanged. */',
+    '#' + CONTROLS_ID + ' button::before {',
+    '  content: "";',
+    '  position: absolute; left: 50%; top: 50%;',
+    '  width: 28px; height: 28px; border-radius: 28px;',
+    '  transform: translate(-50%, -50%);',
+    '  background: transparent;',
+    '  pointer-events: none;',
+    '  transition: background-color 120ms linear;',
+    '}',
+    'html.dsh-page #' + CONTROLS_ID + ' button::before { top: 25px; }',
+    '#' + CONTROLS_ID + ' button:hover::before { background: var(--dsh-ctl-hover); }',
+    '#' + CONTROLS_ID + ' button:active::before { background: var(--dsh-ctl-active); }',
+    '#' + CONTROLS_ID + ' button.close:hover { color: #fff; }',
+    '#' + CONTROLS_ID + ' button.close:hover::before { background: #e81123; }',
+    '#' + CONTROLS_ID + ' button.close:active::before { background: #c50f1f; }',
     '#' + CONTROLS_ID + ' button svg { width: 15px; height: 15px; display: block; pointer-events: none; }',
 
     '/* Maximize <-> restore glyph swap (toggled via .is-max). */',
@@ -76,26 +84,8 @@
     '/* Unfocused window: dim the overlay like native captions. */',
     'html.dsh-launcher-unfocused #' + CONTROLS_ID + ' { opacity: .45; }',
 
-    '/* Shift the DSH right-sidebar tab strip icons left, clear of the controls. */',
-    '[data-sidebar-right-panel] [role="tablist"][data-dockkit-strip],',
-    '.P3OORG_panel [role="tablist"][data-dockkit-strip] {',
-    '  padding-right: var(--dsh-launcher-inset);',
-    '}',
-    '[data-sidebar-right-panel] [role="tablist"][data-dockkit-strip],',
-    '.P3OORG_panel [role="tablist"][data-dockkit-strip] {',
-    '  box-sizing: border-box;',
-    '  height: 38px;',
-    '  align-items: center;',
-    '}',
-
-    '/* Conversation view: the session header title row packs right-side actions',
-    '   (open-in-explorer, open-with, more, open-right-sidebar) against the window',
-    '   edge — under the controls. Shift the whole row clear of them. */',
-    '[data-slot="conversation.session.header"] > header > div:first-child,',
-    '.wSkVaW_titleRow {',
-    '  padding-right: var(--dsh-launcher-inset);',
-    '  box-sizing: border-box;',
-    '}'
+    '/* DSH-page avoidance CSS lives in the adapter registry (see applyAdapter):',
+    '   per-dsh-release "solutions" chosen by detected version + live DOM probe. */'
   ].join('\n');
 
   /* 16-grid glyphs at 1.3 rounded strokes — matches the weight/size of the
@@ -137,6 +127,103 @@
   var wired = false;
 
   function noop() {}
+
+  function stampDshVersion() {
+    var T = window.__TAURI__;
+    if (!T || !T.core) return;
+    T.core.invoke('get_dsh_version').then(function (v) {
+      if (v) document.documentElement.dataset.dshLauncherDshVersion = v;
+    }).catch(noop);
+  }
+
+  // Per-dsh-release adapter registry — one entry per known UI implementation
+  // ("方案"). Selection: adapters whose match(version) is true are probed
+  // against the live DOM first, then the rest; first probe hit wins and its
+  // CSS is injected. If nothing fits after several rounds, flag it loudly
+  // instead of letting the native icons drift under the window controls.
+  // Add a new entry whenever a dsh release changes its UI internals.
+  function cmpVersion(a, b) {
+    var pa = String(a).split('-')[0].split('.'), pb = String(b).split('-')[0].split('.');
+    for (var i = 0; i < 3; i++) {
+      var x = parseInt(pa[i], 10) || 0, y = parseInt(pb[i], 10) || 0;
+      if (x !== y) return x < y ? -1 : 1;
+    }
+    var preA = String(a).indexOf('-') !== -1, preB = String(b).indexOf('-') !== -1;
+    if (preA !== preB) return preA ? -1 : 1; // 0.1.5-rc.3 < 0.1.5
+    return 0;
+  }
+
+  var DSH_ADAPTERS = [
+    {
+      id: 'dsh-0.1.x',
+      // generic: verified on 0.1.4 through 0.1.5-rc.3
+      match: function () { return true; },
+      probe: function () {
+        return !!(document.querySelector('[data-dockkit-strip]') ||
+                  document.querySelector('[data-slot="conversation.session.header"]'));
+      },
+      css: [
+        '[data-sidebar-right-panel] [role="tablist"][data-dockkit-strip],',
+        '.P3OORG_panel [role="tablist"][data-dockkit-strip] {',
+        '  padding-right: var(--dsh-launcher-inset);',
+        '  box-sizing: border-box; height: 38px; align-items: center;',
+        '}',
+        '[data-slot="conversation.session.header"] > header > div:first-child,',
+        '.wSkVaW_titleRow {',
+        '  padding-right: var(--dsh-launcher-inset);',
+        '  box-sizing: border-box;',
+        '}',
+      ],
+    },
+    // Example of a version-scoped entry (kept for reference):
+    // {
+    //   id: 'dsh-0.1.6-newui',
+    //   match: function (v) { return cmpVersion(v, '0.1.6') >= 0; },
+    //   probe: function () { return !!document.querySelector('<new anchor>'); },
+    //   css: [ '...' ],
+    // },
+  ];
+
+  var ADAPTER_STYLE_ID = 'dsh-launcher-adapter';
+  var compatAttempts = 0;
+
+  function scheduleAdapter() {
+    if (compatAttempts >= 6) return;
+    setTimeout(applyAdapter, compatAttempts === 0 ? 1200 : 4000);
+  }
+
+  function applyAdapter() {
+    if (!document.documentElement.classList.contains('dsh-page')) return;
+    var v = document.documentElement.dataset.dshLauncherDshVersion || '';
+    var matched = DSH_ADAPTERS.filter(function (a) { return a.match(v); });
+    var rest = DSH_ADAPTERS.filter(function (a) { return !a.match(v); });
+    var chosen = null;
+    for (var i = 0; i < matched.concat(rest).length; i++) {
+      var a = matched.concat(rest)[i];
+      var ok = false;
+      try { ok = a.probe(); } catch (e) { ok = false; }
+      if (ok) { chosen = a; break; }
+    }
+    if (chosen) {
+      var style = document.getElementById(ADAPTER_STYLE_ID);
+      if (!style) {
+        style = document.createElement('style');
+        style.id = ADAPTER_STYLE_ID;
+        (document.head || document.documentElement).appendChild(style);
+      }
+      style.textContent = chosen.css.join('\n');
+      document.documentElement.dataset.dshLauncherAdapter = chosen.id;
+      delete document.documentElement.dataset.dshLauncherCompat;
+      return;
+    }
+    if (++compatAttempts < 6) {
+      scheduleAdapter();
+      return;
+    }
+    document.documentElement.dataset.dshLauncherCompat = 'stale';
+    console.warn('[dsh-launcher] no adapter matches this dsh build (' +
+      (v || 'unknown version') + ') — window-control avoidance inactive.');
+  }
 
   function wire() {
     if (wired) return;
@@ -198,6 +285,8 @@
       host.appendChild(buildControls());
     }
     wire();
+    stampDshVersion();
+    scheduleAdapter();
   }
 
   // The init script runs at document creation, before <html>/<body> exist —
